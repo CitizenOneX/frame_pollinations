@@ -1,4 +1,4 @@
-package com.example.wiki_frame
+package com.example.frame_pollinations
 
 import io.flutter.embedding.android.FlutterActivity
 

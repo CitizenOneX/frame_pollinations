@@ -1,5 +1,5 @@
-name: wiki_frame
-description: "Listens for a search phrase from the user, queries Wikipedia and returns an extract for display in Frame"
+name: frame_pollinations
+description: "Generative AI images for Frame using pollinations.ai"
 publish_to: 'none'
 version: 0.1.0
 

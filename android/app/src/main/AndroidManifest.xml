@@ -20,7 +20,7 @@
     <!-- Required for host microphone input (can remove if switching to Frame mic) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application
-        android:label="wiki_frame"
+        android:label="frame_pollinations"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
