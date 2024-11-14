@@ -65,7 +65,7 @@ function app_loop()
                                         image_sprite_block.set_palette(spr.num_colors, spr.palette_data)
                                     end
 
-                                    frame.display.bitmap(401, y_offset + 1, spr.width, 2^spr.bpp, 0, spr.pixel_data)
+                                    frame.display.bitmap(640-256, y_offset + 1, spr.width, 2^spr.bpp, 0, spr.pixel_data)
                                 end
 
                                 frame.display.show()

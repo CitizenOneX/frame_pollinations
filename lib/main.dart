@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:logging/logging.dart';
-import 'package:simple_frame_app/text_utils.dart';
 import 'package:simple_frame_app/simple_frame_app.dart';
 import 'package:simple_frame_app/tx/image_sprite_block.dart';
 import 'package:simple_frame_app/tx/sprite.dart';
@@ -13,7 +12,7 @@ import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-import 'wiki.dart';
+import 'pollinations.dart';
 
 void main() => runApp(const MainApp());
 
@@ -30,7 +29,7 @@ class MainApp extends StatefulWidget {
 class MainAppState extends State<MainApp> with SimpleFrameAppState {
 
   MainAppState() {
-    Logger.root.level = Level.INFO;
+    Logger.root.level = Level.FINE;
     Logger.root.onRecord.listen((record) {
       debugPrint('${record.level.name}: [${record.loggerName}] ${record.time}: ${record.message}');
     });
@@ -43,8 +42,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   String _finalResult = "N/A";
   String? _prevText;
 
-  // Wiki members
-  String _extract = '';
+  // Pollination members
   Image? _image;
 
   static const _textStyle = TextStyle(fontSize: 30);
@@ -101,8 +99,8 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
 
   /// This application uses platform speech-to-text to listen to audio from the host mic, convert to text,
   /// and send the text to the Frame.
-  /// A Wiki query is also sent, and the resulting content is shown in Frame.
-  /// So the lifetime of this run() is only 5 seconds or so.
+  /// An image generation request is also sent, and the resulting content is shown in Frame.
+  /// So the lifetime of this run() is 10s of seconds or so, due to image generation time and image transfer time
   /// It has a running main loop on the Frame (frame_app.lua)
   @override
   Future<void> run() async {
@@ -121,7 +119,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
         }
 
         if (result.finalResult) {
-          // on a final result we fetch the wiki content
+          // on a final result we generate the image
           _finalResult = result.recognizedWords;
           _partialResult = '';
           _log.fine('Final result: $_finalResult');
@@ -132,90 +130,55 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
             _prevText = _finalResult;
           }
 
-          // kick off the http request sequence
+
+          // first, download the image based on the prompt
           String? error;
-          String? title;
-          (title, error) = await findBestPage(_finalResult);
+          Uint8List? imageBytes;
+          (imageBytes, error) = await fetchImage(_finalResult);
 
-          if (title != null) {
-            // send page title to Frame on row 1
-            if (title != _prevText) {
-              await frame!.sendMessage(TxPlainText(msgCode: 0x0a, text: title));
-              _prevText = title;
+          if (imageBytes != null) {
+            try {
+              // Update the UI based on the original image
+              setState(() {
+                _image = Image.memory(imageBytes!, gaplessPlayback: true, fit: BoxFit.cover);
+              });
+
+              // yield here a moment in order to show the first image first
+              await Future.delayed(const Duration(milliseconds: 10));
+
+              var sprite = TxSprite.fromImageBytes(msgCode: 0x0d, imageBytes: imageBytes);
+
+              // Update the UI with the modified image
+              setState(() {
+                _image = Image.memory(img.encodePng(sprite.toImage()), gaplessPlayback: true, fit: BoxFit.cover);
+              });
+
+              // create the image sprite block header and its sprite lines
+              // based on the sprite
+              TxImageSpriteBlock isb = TxImageSpriteBlock(
+                msgCode: 0x0d,
+                image: sprite,
+                spriteLineHeight: 20,
+                progressiveRender: true);
+
+              // and send the block header then the sprite lines to Frame
+              await frame!.sendMessage(isb);
+
+              for (var sprite in isb.spriteLines) {
+                await frame!.sendMessage(sprite);
+              }
+
+              // final result is done
+              currentState = ApplicationState.ready;
+              if (mounted) setState(() {});
             }
-
-            WikiResult? result;
-            String? error;
-            (result, error) = await fetchExtract(title);
-
-            if (result != null) {
-              _extract = TextUtils.wrapText('${result.title}\n${result.extract}', 400, 4).join('\n');
-              _finalResult = result.title;
-              if (mounted) setState((){});
-              // send result.extract to Frame ( TODO regex strip non-printable? )
-              await frame!.sendMessage(TxPlainText(msgCode: 0x0a, text: _extract));
-              _prevText = _extract;
-
-              if (result.thumbUri != null) {
-                // first, download the image into an image/image
-                Uint8List? imageBytes;
-                (imageBytes, error) = await fetchThumbnail(result.thumbUri!);
-
-                if (imageBytes != null) {
-                  try {
-                    // Update the UI based on the original image
-                    setState(() {
-                      _image = Image.memory(imageBytes!, gaplessPlayback: true, fit: BoxFit.cover);
-                    });
-
-                    // yield here a moment in order to show the first image first
-                    await Future.delayed(const Duration(milliseconds: 10));
-
-                    var sprite = TxSprite.fromImageBytes(msgCode: 0x0d, imageBytes: imageBytes);
-
-                    // Update the UI with the modified image
-                    setState(() {
-                      _image = Image.memory(img.encodePng(sprite.toImage()), gaplessPlayback: true, fit: BoxFit.cover);
-                    });
-
-                    // create the image sprite block header and its sprite lines
-                    // based on the sprite
-                    TxImageSpriteBlock isb = TxImageSpriteBlock(
-                      msgCode: 0x0d,
-                      image: sprite,
-                      spriteLineHeight: 20,
-                      progressiveRender: true);
-
-                    // and send the block header then the sprite lines to Frame
-                    await frame!.sendMessage(isb);
-
-                    for (var sprite in isb.spriteLines) {
-                      await frame!.sendMessage(sprite);
-                    }
-                  }
-                  catch (e) {
-                    _log.severe('Error processing image: $e');
-                  }
-                }
-                else {
-                  _log.fine('Error fetching thumbnail for "$_finalResult": "${result.thumbUri!}" - "$error"');
-                }
-              }
-              else {
-                // no thumbnail for this entry
-                _image = null;
-              }
+            catch (e) {
+              _log.severe('Error processing image: $e');
             }
           }
           else {
-            _log.fine('Error searching for "$_finalResult" - "$error"');
-            _extract = error!;
-            _image = null;
+            _log.fine('Error fetching image for "$_finalResult": "$error"');
           }
-
-          // final result is done
-          currentState = ApplicationState.ready;
-          if (mounted) setState(() {});
         }
         else {
           // partial result - just display in-progress text
@@ -233,8 +196,8 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
     );
   }
 
-  /// The run() function will run for 5 seconds or so, but if the user
-  /// interrupts it, we can cancel the speech to text/wiki search and return to ApplicationState.ready state.
+  /// The run() function will run for 5-25 seconds or so, but if the user
+  /// interrupts it, we can cancel the speech to text/image generation and return to ApplicationState.ready state.
   @override
   Future<void> cancel() async {
     await _stopListening();
@@ -267,16 +230,6 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                   height: 400,
                   child: Row(
                     children: [
-                      Expanded(
-                        flex: 5,
-                        child: Container(
-                          alignment: Alignment.topCenter,
-                          color: Colors.black,
-                          child: Text(_extract,
-                            style: const TextStyle(color: Colors.white, fontSize: 18),
-                          ),
-                        ),
-                      ),
                       Expanded(
                         flex: 3,
                         child: Container(
