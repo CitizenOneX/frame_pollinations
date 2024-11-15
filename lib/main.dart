@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:logging/logging.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:simple_frame_app/simple_frame_app.dart';
 import 'package:simple_frame_app/text_utils.dart';
 import 'package:simple_frame_app/tx/image_sprite_block.dart';
@@ -43,8 +44,9 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   String _finalResult = "N/A";
   String? _prevText;
 
-  // Pollination members
+  // Image gen/display/sharing members
   Image? _image;
+  Uint8List? _imageBytes;
 
   static const _textStyle = TextStyle(fontSize: 30);
 
@@ -134,20 +136,23 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
 
           // first, download the image based on the prompt
           String? error;
-          Uint8List? imageBytes;
-          (imageBytes, error) = await fetchImage(_finalResult);
+          Uint8List? bytes;
+          (bytes, error) = await fetchImage(_finalResult);
 
-          if (imageBytes != null) {
+          if (bytes != null) {
             try {
+              _imageBytes = bytes;
+
               // Update the UI based on the original image
               setState(() {
-                _image = Image.memory(imageBytes!, gaplessPlayback: true, fit: BoxFit.cover);
+                _image = Image.memory(_imageBytes!, gaplessPlayback: true, fit: BoxFit.cover);
               });
 
               // yield here a moment in order to show the first image first
               await Future.delayed(const Duration(milliseconds: 10));
 
-              var sprite = TxSprite.fromImageBytes(msgCode: 0x0d, imageBytes: imageBytes);
+              // creating the sprite this way will quantize colors and possibly scale the image
+              var sprite = TxSprite.fromImageBytes(msgCode: 0x0d, imageBytes: _imageBytes!);
 
               // Update the UI with the modified image
               setState(() {
@@ -206,6 +211,19 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
     if (mounted) setState(() {});
   }
 
+  void _shareImage(Uint8List jpegBytes, String prompt) async {
+    try {
+    // Share the image bytes as a JPEG file
+    await Share.shareXFiles(
+      [XFile.fromData(jpegBytes, mimeType: 'image/jpeg', name: 'image.jpg')],
+      text: prompt,
+    );
+    }
+    catch (e) {
+      _log.severe('Error preparing image for sharing: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -236,8 +254,10 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
                         child: Container(
                           alignment: Alignment.topCenter,
                           color: Colors.black,
-                          child: (_image != null) ? _image! : null
-                        ),
+                          child: (_image != null) ? GestureDetector(
+                            onTap: () => _shareImage(_imageBytes!, _finalResult),
+                            child: _image!) : null
+                        )
                       ),
                     ],
                   ),
