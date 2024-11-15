@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:logging/logging.dart';
 import 'package:simple_frame_app/simple_frame_app.dart';
+import 'package:simple_frame_app/text_utils.dart';
 import 'package:simple_frame_app/tx/image_sprite_block.dart';
 import 'package:simple_frame_app/tx/sprite.dart';
 import 'package:simple_frame_app/tx/plain_text.dart';
@@ -29,7 +30,7 @@ class MainApp extends StatefulWidget {
 class MainAppState extends State<MainApp> with SimpleFrameAppState {
 
   MainAppState() {
-    Logger.root.level = Level.FINE;
+    Logger.root.level = Level.INFO;
     Logger.root.onRecord.listen((record) {
       debugPrint('${record.level.name}: [${record.loggerName}] ${record.time}: ${record.message}');
     });
@@ -126,7 +127,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
           _stopListening();
           // send final query text to Frame line 1 (before we confirm the title)
           if (_finalResult != _prevText) {
-            await frame!.sendMessage(TxPlainText(msgCode: 0x0a, text: _finalResult));
+            await frame!.sendMessage(TxPlainText(msgCode: 0x0a, text: TextUtils.wrapText(_finalResult, 300, 4).join('\n')));
             _prevText = _finalResult;
           }
 
@@ -188,7 +189,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
           _log.fine('Partial result: $_partialResult, ${result.alternates}');
           if (_partialResult != _prevText) {
             // send partial result to Frame line 1
-            await frame!.sendMessage(TxPlainText(msgCode: 0x0a, text: _partialResult));
+            await frame!.sendMessage(TxPlainText(msgCode: 0x0a, text: TextUtils.wrapText(_partialResult, 300, 4).join('\n')));
             _prevText = _partialResult;
           }
         }
@@ -208,11 +209,11 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Wiki Frame',
+      title: 'Frame - Pollinations.ai',
       theme: ThemeData.dark(),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text("Wiki Frame"),
+          title: const Text('Frame - Pollinations.ai'),
           actions: [getBatteryWidget()]
         ),
         body: Center(
