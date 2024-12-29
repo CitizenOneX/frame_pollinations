@@ -14,7 +14,7 @@ dependencies:
   logging: ^1.2.0
   share_plus: ^10.1.0
   speech_to_text: ^6.6.2
-  simple_frame_app: ^1.6.0
+  simple_frame_app: ^3.1.0
 
 dev_dependencies:
   flutter_test:

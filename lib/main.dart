@@ -54,9 +54,10 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   void initState() {
     super.initState();
 
-    // asynchronously kick off Speech-to-text initialization
+    // asynchronously kick off Speech-to-text initialization and Frame connection/startup
     currentState = ApplicationState.initializing;
-    _initSpeech();
+    _initSpeech()
+      .then((dynamic) {tryScanAndConnectAndStart(andRun: false);});
   }
 
   @override
@@ -66,7 +67,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
   }
 
   /// This has to happen only once per app, but microphone permission must be provided
-  void _initSpeech() async {
+  Future<void> _initSpeech() async {
     _speechEnabled = await _speechToText.initialize(onError: _onSpeechError);
 
     if (!_speechEnabled) {

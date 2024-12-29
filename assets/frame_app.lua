@@ -12,15 +12,14 @@ data.parsers[TEXT_FLAG] = plain_text.parse_plain_text
 data.parsers[IMAGE_SPRITE_BLOCK] = image_sprite_block.parse_image_sprite_block
 
 -- draw the current text on the display
-function print_text()
+function print_text(text_string)
     local i = 0
-    for line in data.app_data[TEXT_FLAG].string:gmatch("([^\n]*)\n?") do
+    for line in text_string:gmatch("([^\n]*)\n?") do
         if line ~= "" then
             frame.display.text(line, 1, i * 60 + 1)
             i = i + 1
         end
     end
-
 end
 
 
@@ -30,21 +29,20 @@ function app_loop()
 	frame.display.text(" ", 1, 1)
 	frame.display.show()
     local last_batt_update = 0
+    local caption = ''
     while true do
         rc, err = pcall(
             function()
                 -- process any raw items, if ready (parse into image or text, then clear raw)
                 local items_ready = data.process_raw_items()
 
-                -- TODO tune sleep durations to optimise for data handler and processing
-                frame.sleep(0.005)
-
                 -- only need to print it once when it's ready, it will stay there
                 -- but if we print either, then we need to print both because a draw call and show
                 -- will flip the buffer away from the already-drawn text/image
                 if items_ready > 0 then
                     if (data.app_data[TEXT_FLAG] ~= nil and data.app_data[TEXT_FLAG].string ~= nil) then
-                        print_text()
+                        -- save the string here and we'll print it before show()
+                        caption = data.app_data[TEXT_FLAG].string
                     end
 
                     if (data.app_data[IMAGE_SPRITE_BLOCK] ~= nil) then
@@ -67,12 +65,12 @@ function app_loop()
 
                                     frame.display.bitmap(301, y_offset + 1, spr.width, 2^spr.bpp, 0, spr.pixel_data)
                                 end
-
-                                frame.display.show()
                             end
                         end
                     end
 
+                    -- always show the current caption if there is one
+                    print_text(caption)
                     frame.display.show()
                 end
 
@@ -81,7 +79,6 @@ function app_loop()
 
                 -- periodic battery level updates
                 last_batt_update = battery.send_batt_if_elapsed(last_batt_update, 180)
-                frame.sleep(0.1)
 
                 -- TODO clear display after an amount of time?
             end
