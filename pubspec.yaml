@@ -9,12 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  frame_msg: ^2.0.0
   http: ^0.13.5
   image: ^4.2.0
   logging: ^1.2.0
   share_plus: ^10.1.0
   speech_to_text: ^6.6.2
-  simple_frame_app: ^3.1.0
+  simple_frame_app: ^7.0.0
 
 dev_dependencies:
   flutter_test:
@@ -24,9 +25,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - packages/simple_frame_app/lua/battery.min.lua
-    - packages/simple_frame_app/lua/data.min.lua
-    - packages/simple_frame_app/lua/sprite.min.lua
-    - packages/simple_frame_app/lua/plain_text.min.lua
-    - packages/simple_frame_app/lua/image_sprite_block.min.lua
+    - packages/frame_msg/lua/battery.min.lua
+    - packages/frame_msg/lua/data.min.lua
+    - packages/frame_msg/lua/sprite.min.lua
+    - packages/frame_msg/lua/plain_text.min.lua
+    - packages/frame_msg/lua/image_sprite_block.min.lua
     - assets/frame_app.min.lua

@@ -7,9 +7,9 @@ import 'package:logging/logging.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:simple_frame_app/simple_frame_app.dart';
 import 'package:simple_frame_app/text_utils.dart';
-import 'package:simple_frame_app/tx/image_sprite_block.dart';
-import 'package:simple_frame_app/tx/sprite.dart';
-import 'package:simple_frame_app/tx/plain_text.dart';
+import 'package:frame_msg/tx/image_sprite_block.dart';
+import 'package:frame_msg/tx/sprite.dart';
+import 'package:frame_msg/tx/plain_text.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -130,7 +130,8 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
           _stopListening();
           // send final query text to Frame line 1 (before we confirm the title)
           if (_finalResult != _prevText) {
-            await frame!.sendMessage(TxPlainText(msgCode: 0x0a, text: TextUtils.wrapText(_finalResult, 300, 4).join('\n')));
+            var text = TxPlainText(text: TextUtils.wrapText(_finalResult, 300, 4).join('\n'));
+            await frame!.sendMessage(0x0a, text.pack());
             _prevText = _finalResult;
           }
 
@@ -153,7 +154,7 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
               await Future.delayed(const Duration(milliseconds: 10));
 
               // creating the sprite this way will quantize colors and possibly scale the image
-              var sprite = TxSprite.fromImageBytes(msgCode: 0x0d, imageBytes: _imageBytes!);
+              var sprite = TxSprite.fromImageBytes(imageBytes: _imageBytes!);
 
               // Update the UI with the modified image
               setState(() {
@@ -163,16 +164,15 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
               // create the image sprite block header and its sprite lines
               // based on the sprite
               TxImageSpriteBlock isb = TxImageSpriteBlock(
-                msgCode: 0x0d,
                 image: sprite,
                 spriteLineHeight: 20,
                 progressiveRender: true);
 
               // and send the block header then the sprite lines to Frame
-              await frame!.sendMessage(isb);
+              await frame!.sendMessage(0x0d, isb.pack());
 
               for (var sprite in isb.spriteLines) {
-                await frame!.sendMessage(sprite);
+                await frame!.sendMessage(0x0d, sprite.pack());
               }
 
               // final result is done
@@ -195,7 +195,8 @@ class MainAppState extends State<MainApp> with SimpleFrameAppState {
           _log.fine('Partial result: $_partialResult, ${result.alternates}');
           if (_partialResult != _prevText) {
             // send partial result to Frame line 1
-            await frame!.sendMessage(TxPlainText(msgCode: 0x0a, text: TextUtils.wrapText(_partialResult, 300, 4).join('\n')));
+            var text = TxPlainText(text: TextUtils.wrapText(_partialResult, 300, 4).join('\n'));
+            await frame!.sendMessage(0x0a, text.pack());
             _prevText = _partialResult;
           }
         }
